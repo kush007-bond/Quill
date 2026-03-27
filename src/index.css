@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Quill Global Theme CSS
+ * Implements the color palette and typography defined in Section 5 of the spec.
+ */
+
+:root {
+  /* Light Theme — "Paper" (Spec 5.3) */
+  --bg-canvas: #F8F5F0;
+  --bg-surface: #F2EDE6;
+  --bg-overlay: #EAE4DC;
+  --border: #DDD7CE;
+  --text-primary: #1C1917;
+  --text-secondary: #5C5248;
+  --text-muted: #9E9890;
+  --accent: #C2692A;
+  --accent-hover: #A3551F;
+  --accent-subtle: #F5E8DC;
+  --danger: #C0392B;
+  --success: #2E7D52;
+
+  --font-serif: 'Lora', serif;
+  --font-sans: 'DM Sans', sans-serif;
+}
+
+[data-theme='dark'] {
+  /* Dark Theme — "Ink" (Spec 5.3) */
+  --bg-canvas: #16130F;
+  --bg-surface: #1E1A14;
+  --bg-overlay: #2A2419;
+  --border: #3A3228;
+  --text-primary: #E8E0D4;
+  --text-secondary: #A89E90;
+  --text-muted: #6B6358;
+  --accent: #E8884A;
+  --accent-hover: #F09A62;
+  --accent-subtle: #2E2010;
+  --danger: #E05555;
+  --success: #4CAF80;
+}
+
+@layer base {
+  body {
+    /* Hardcoded fallback background and color for diagnostic purposes */
+    background-color: #F8F5F0 !important;
+    background-color: var(--bg-canvas) !important;
+    color: var(--text-primary);
+    font-family: var(--font-serif);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Custom Scrollbar for Minimalism */
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Hide CodeMirror's internal scroller scrollbar */
+.cm-scroller::-webkit-scrollbar {
+  display: none;
+}
+.cm-scroller {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* Force some style on the App container */
+#root {
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ── Prose table: continuous collapsed borders ───────────────────────────────
+   Tailwind Typography's default prose table only sets top/bottom borders on
+   cells. We override with all-four-sides borders and explicit collapse so the
+   grid is fully continuous with no gaps or broken seams.                     */
+.prose table {
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+.prose table th,
+.prose table td {
+  border: 1px solid var(--border) !important;
+  padding: 0.5rem 0.75rem !important;
+  vertical-align: top !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  box-sizing: border-box !important;
+}
+.prose table thead th {
+  background-color: var(--bg-overlay) !important;
+  font-weight: 600 !important;
+}
+/* Zebra stripe for readability */
+.prose table tbody tr:nth-child(even) td {
+  background-color: rgba(0, 0, 0, 0.025);
+}
+[data-theme='dark'] .prose table tbody tr:nth-child(even) td {
+  background-color: rgba(255, 255, 255, 0.025);
+}
+
+/* ── Editor table widget: map CSS vars to Quill's theme tokens ───────────────
+   tableExtension sets these on .cm-editor; we override with !important so
+   Quill's light/dark theme switch applies automatically.                      */
+.cm-editor {
+  --table-border:         var(--border) !important;
+  --table-header-bg:      var(--bg-overlay) !important;
+  --table-header-fg:      var(--text-primary) !important;
+  --table-cell-bg:        transparent !important;
+  --table-cell-fg:        var(--text-primary) !important;
+  --table-stripe-bg:      rgba(0,0,0,0.03) !important;
+  --table-focus:          var(--accent) !important;
+  --table-focus-bg:       var(--accent-subtle) !important;
+  --table-btn-bg:         var(--bg-surface) !important;
+  --table-btn-fg:         var(--text-secondary) !important;
+  --table-btn-hover-bg:   var(--bg-overlay) !important;
+}
+
+/* ── Dark mode: override Tailwind Typography prose colours ───────────────────
+   prose-stone hardcodes stone-* colours; these CSS var overrides make every
+   prose element inherit Quill's theme tokens instead.                        */
+[data-theme='dark'] .prose {
+  --tw-prose-body:        var(--text-primary);
+  --tw-prose-headings:    var(--text-primary);
+  --tw-prose-lead:        var(--text-secondary);
+  --tw-prose-links:       var(--accent);
+  --tw-prose-bold:        var(--text-primary);
+  --tw-prose-counters:    var(--text-secondary);
+  --tw-prose-bullets:     var(--text-secondary);
+  --tw-prose-hr:          var(--border);
+  --tw-prose-quotes:      var(--text-primary);
+  --tw-prose-quote-borders: var(--accent);
+  --tw-prose-captions:    var(--text-muted);
+  --tw-prose-code:        var(--text-primary);
+  --tw-prose-pre-code:    var(--text-primary);
+  --tw-prose-pre-bg:      var(--bg-overlay);
+  --tw-prose-th-borders:  var(--border);
+  --tw-prose-td-borders:  var(--border);
+}
