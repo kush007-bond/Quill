@@ -3,8 +3,9 @@ import Sidebar from '@/components/sidebar/Sidebar';
 import Editor, { EditorHandle } from '@/components/editor/Editor';
 import Preview from '@/components/editor/Preview';
 import Toolbar from '@/components/editor/Toolbar';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 import { useDocumentStore } from '@/store/useDocumentStore';
-import { Pencil, Columns, Eye, Maximize2, Minimize2, Moon, Sun } from 'lucide-react';
+import { Pencil, Columns, Eye, Maximize2, Minimize2, Moon, Sun, Menu } from 'lucide-react';
 import { clsx } from 'clsx';
 
 type EditorMode = 'source' | 'split' | 'preview';
@@ -15,7 +16,6 @@ const MODES = [
   { id: 'preview', label: 'Preview', Icon: Eye     },
 ] as const;
 
-// ── Helpers to read/write localStorage safely ─────────────────────────────────
 function getLS(key: string, fallback: string): string {
   try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
 }
@@ -23,33 +23,42 @@ function setLS(key: string, val: string) {
   try { localStorage.setItem(key, val); } catch { /* noop */ }
 }
 
-// ── Main layout ───────────────────────────────────────────────────────────────
 const MainLayout: React.FC = () => {
   const { documents, activeDocumentId, updateDocument } = useDocumentStore();
 
-  const [mode,      setMode]     = useState<EditorMode>('source');
-  const [focusMode, setFocusMode] = useState(false);
-  const [darkMode,  setDarkMode]  = useState(() => getLS('quill-theme', 'light') === 'dark');
-  const [font,      setFont]      = useState(() => getLS('quill-font', 'Lora, serif'));
-  const [fontSize,  setFontSize]  = useState(() => Number(getLS('quill-size', '17')));
+  const [mode,         setMode]         = useState<EditorMode>('source');
+  const [focusMode,    setFocusMode]    = useState(false);
+  const [sidebarOpen,  setSidebarOpen]  = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [darkMode,     setDarkMode]     = useState(() => getLS('quill-theme', 'light') === 'dark');
+  const [font,         setFont]         = useState(() => getLS('quill-font', 'Lora, serif'));
+  const [fontSize,     setFontSize]     = useState(() => Number(getLS('quill-size', '17')));
 
   const editorRef = useRef<EditorHandle>(null);
 
-  // Apply theme to <html>
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
     setLS('quill-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
-  const handleFont = (f: string) => { setFont(f); setLS('quill-font', f); };
-  const handleSize = (s: number) => { setFontSize(s); setLS('quill-size', String(s)); };
+  // On small screens, collapse sidebar by default
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)');
+    if (mq.matches) setSidebarOpen(false);
+    const handler = (e: MediaQueryListEvent) => { if (e.matches) setSidebarOpen(false); };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
-  const activeDoc = documents.find((d) => d.id === activeDocumentId);
+  const handleFont     = (f: string) => { setFont(f);          setLS('quill-font', f); };
+  const handleFontSize = (s: number) => { setFontSize(s);      setLS('quill-size', String(s)); };
+  const handleDarkMode = (v: boolean) => setDarkMode(v);
 
-  const words      = activeDoc?.content.split(/\s+/).filter(Boolean).length ?? 0;
-  const chars      = activeDoc?.content.replace(/\n/g, '').length ?? 0;
-  const paragraphs = activeDoc?.content.split(/\n\s*\n/).filter(Boolean).length ?? 0;
-  const readMin    = Math.max(1, Math.ceil(words / 200));
+  const activeDoc   = documents.find((d) => d.id === activeDocumentId);
+  const words       = activeDoc?.content.split(/\s+/).filter(Boolean).length ?? 0;
+  const chars       = activeDoc?.content.replace(/\n/g, '').length ?? 0;
+  const paragraphs  = activeDoc?.content.split(/\n\s*\n/).filter(Boolean).length ?? 0;
+  const readMin     = Math.max(1, Math.ceil(words / 200));
 
   const handleContent = (content: string) => {
     if (activeDoc) updateDocument(activeDoc.id, { content });
@@ -61,18 +70,47 @@ const MainLayout: React.FC = () => {
 
   const showEditor  = mode === 'source' || mode === 'split';
   const showPreview = mode === 'preview' || mode === 'split';
+  const showSidebar = !focusMode && sidebarOpen;
 
   return (
     <div className="flex h-screen bg-canvas text-primary overflow-hidden">
-      {!focusMode && <Sidebar />}
+
+      {/* Sidebar overlay on mobile */}
+      {showSidebar && (
+        <>
+          {/* Mobile backdrop */}
+          <div
+            className="sm:hidden fixed inset-0 z-20 bg-black/40"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <div className="fixed sm:relative z-30 sm:z-auto h-full">
+            <Sidebar onSettings={() => setSettingsOpen(true)} />
+          </div>
+        </>
+      )}
+
+      {/* Hidden sidebar still takes no space on desktop */}
+      {!showSidebar && !focusMode && (
+        <div className="hidden sm:block" />
+      )}
 
       <main className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
 
         {/* ── Header ─────────────────────────────────────────── */}
         <header
-          className="flex-shrink-0 border-b border-border flex items-center justify-between px-5 bg-canvas/80 backdrop-blur-sm z-10 gap-4"
-          style={{ height: '52px' }}
+          className="flex-shrink-0 border-b border-border flex items-center justify-between px-3 sm:px-5 bg-canvas/80 backdrop-blur-sm z-10 gap-2 sm:gap-4"
+          style={{ height: '52px', paddingTop: 'env(safe-area-inset-top)' }}
         >
+          {/* Mobile sidebar toggle */}
+          {!focusMode && (
+            <button
+              onClick={() => setSidebarOpen((v) => !v)}
+              className="sm:hidden p-1.5 rounded-md text-muted hover:bg-overlay hover:text-secondary transition-colors flex-shrink-0"
+            >
+              <Menu size={16} />
+            </button>
+          )}
+
           {/* Title */}
           <input
             type="text"
@@ -84,23 +122,23 @@ const MainLayout: React.FC = () => {
           />
 
           {/* Controls */}
-          <div className="flex items-center gap-1.5 flex-shrink-0 select-none">
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0 select-none">
 
-            {/* Mode tabs */}
+            {/* Mode tabs — hide labels on mobile */}
             <nav className="flex items-center bg-surface rounded-lg border border-border p-0.5 gap-0.5">
               {MODES.map(({ id, label, Icon }) => (
                 <button
                   key={id}
                   onClick={() => setMode(id)}
                   className={clsx(
-                    'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-sans font-medium transition-all duration-150',
+                    'flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-md text-xs font-sans font-medium transition-all duration-150',
                     mode === id
                       ? 'bg-canvas text-primary shadow-sm'
                       : 'text-muted hover:text-secondary'
                   )}
                 >
                   <Icon size={12} />
-                  {label}
+                  <span className="hidden sm:inline">{label}</span>
                 </button>
               ))}
             </nav>
@@ -117,11 +155,11 @@ const MainLayout: React.FC = () => {
             {/* Focus mode */}
             <button
               onClick={() => setFocusMode((f) => !f)}
-              title={focusMode ? 'Exit focus mode' : 'Focus mode — hide sidebar'}
+              title={focusMode ? 'Exit focus mode' : 'Focus mode'}
               className={clsx(
                 'p-1.5 rounded-md transition-colors',
                 focusMode
-                  ? 'bg-accent-subtle text-accent hover:bg-accent-subtle'
+                  ? 'bg-accent-subtle text-accent'
                   : 'text-muted hover:bg-overlay hover:text-secondary'
               )}
             >
@@ -137,7 +175,7 @@ const MainLayout: React.FC = () => {
             font={font}
             fontSize={fontSize}
             onFont={handleFont}
-            onSize={handleSize}
+            onSize={handleFontSize}
             onInsertText={(text) => editorRef.current?.insertText(text)}
           />
         )}
@@ -182,35 +220,50 @@ const MainLayout: React.FC = () => {
         </div>
 
         {/* ── Status bar ─────────────────────────────────────── */}
-        <footer className="flex-shrink-0 h-7 border-t border-border flex items-center justify-between px-5 bg-surface/50 select-none">
-          <div className="flex items-center gap-2.5 text-[11px] text-muted font-sans">
+        <footer
+          className="flex-shrink-0 h-7 border-t border-border flex items-center justify-between px-3 sm:px-5 bg-surface/50 select-none"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <div className="flex items-center gap-2 sm:gap-2.5 text-[11px] text-muted font-sans">
             <span>{words.toLocaleString()} {words === 1 ? 'word' : 'words'}</span>
             <Dot />
-            <span>{chars.toLocaleString()} {chars === 1 ? 'char' : 'chars'}</span>
+            <span className="hidden sm:inline">{chars.toLocaleString()} {chars === 1 ? 'char' : 'chars'}</span>
             {paragraphs > 0 && (
-              <>
+              <span className="hidden sm:inline">
                 <Dot />
-                <span>{paragraphs} {paragraphs === 1 ? 'paragraph' : 'paragraphs'}</span>
-              </>
+                {paragraphs} {paragraphs === 1 ? 'para' : 'paras'}
+              </span>
             )}
           </div>
 
-          <div className="flex items-center gap-2.5 text-[11px] text-muted font-sans">
-            <span>{readMin} min read</span>
+          <div className="flex items-center gap-2 sm:gap-2.5 text-[11px] text-muted font-sans">
+            <span className="hidden sm:inline">{readMin} min read</span>
             {activeDoc && (
               <>
                 <Dot />
                 <span>
-                  Saved {activeDoc.updatedAt.toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  Saved {activeDoc.updatedAt instanceof Date
+                    ? activeDoc.updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : new Date(activeDoc.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  }
                 </span>
               </>
             )}
           </div>
         </footer>
       </main>
+
+      {/* Settings panel */}
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        darkMode={darkMode}
+        onDarkMode={handleDarkMode}
+        font={font}
+        onFont={handleFont}
+        fontSize={fontSize}
+        onFontSize={handleFontSize}
+      />
     </div>
   );
 };
